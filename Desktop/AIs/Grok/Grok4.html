@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Grok • Revolver Firing Sequence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  .container {
+    position: relative;
+    width:  880px;
+    height: 520px;
+    perspective: 1600px;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 30px 50px rgba(0,0,0,0.7));
+  }
+
+  .title {
+    position: absolute;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #e2e8f0;
+    font-size: 2.1rem;
+    font-weight: 600;
+    letter-spacing: -0.6px;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.7);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .status {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 15, 30, 0.8);
+    color: #94a3b8;
+    padding: 10px 28px;
+    border-radius: 999px;
+    font-size: 1rem;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="title">Six-Shot Revolver – Side View</div>
+
+  <svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg">
+
+    <defs>
+      <!-- Metal gradients -->
+      <linearGradient id="bluedSteel" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#c0d4e6"/>
+        <stop offset="25%" stop-color="#8ba4c2"/>
+        <stop offset="50%" stop-color="#5c7a9e"/>
+        <stop offset="75%" stop-color="#3a5578"/>
+        <stop offset="100%" stop-color="#1e334f"/>
+      </linearGradient>
+
+      <linearGradient id="frameMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#d1d5db"/>
+        <stop offset="40%" stop-color="#9ca3af"/>
+        <stop offset="70%" stop-color="#6b7280"/>
+        <stop offset="100%" stop-color="#374151"/>
+      </linearGradient>
+
+      <radialGradient id="muzzleFlashGrad">
+        <stop offset="0%" stop-color="#fef08c"/>
+        <stop offset="40%" stop-color="#fbbf24"/>
+        <stop offset="70%" stop-color="#f97316"/>
+        <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+      </radialGradient>
+
+      <radialGradient id="smokeGrad">
+        <stop offset="0%" stop-color="#e2e8f0" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#94a3b8" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <!-- Background subtle gradient -->
+    <rect width="880" height="520" fill="#0f0f1d"/>
+
+    <!-- Floor shadow -->
+    <ellipse cx="440" cy="460" rx="220" ry="35" fill="rgba(0,0,0,0.6)" opacity="0.65"/>
+
+    <!-- Revolver group -->
+    <g id="revolver" transform="translate(440,260) scale(1.15)">
+
+      <!-- Frame -->
+      <path d="M -180,-80 Q -220,-40 -220,0 Q -220,80 -180,120 L 60,140 Q 140,140 180,100 Q 220,60 220,0 Q 220,-60 180,-100 L -60,-120 Q -120,-120 -180,-80 Z"
+            fill="url(#frameMetal)" stroke="#1e293b" stroke-width="12" stroke-linejoin="round"/>
+
+      <!-- Cylinder -->
+      <g id="cylinder" transform="translate(-40,0)">
+        <circle cx="0" cy="0" r="68" fill="#1e293b" stroke="#111827" stroke-width="14"/>
+        <!-- Chamber outlines -->
+        <g id="chambers">
+          <circle cx="0" cy="-48" r="18" fill="#111827"/>
+          <circle cx="42" cy="-34" r="18" fill="#111827"/>
+          <circle cx="42" cy="34" r="18" fill="#111827"/>
+          <circle cx="0" cy="48" r="18" fill="#111827"/>
+          <circle cx="-42" cy="34" r="18" fill="#111827"/>
+          <circle cx="-42" cy="-34" r="18" fill="#111827"/>
+        </g>
+        <!-- Spent casings (brass rim) -->
+        <g id="brass-rims">
+          <circle cx="0" cy="-48" r="19" fill="#b45309" opacity="0"/>
+          <circle cx="42" cy="-34" r="19" fill="#b45309" opacity="0"/>
+          <circle cx="42" cy="34" r="19" fill="#b45309" opacity="0"/>
+          <circle cx="0" cy="48" r="19" fill="#b45309" opacity="0"/>
+          <circle cx="-42" cy="34" r="19" fill="#b45309" opacity="0"/>
+          <circle cx="-42" cy="-34" r="19" fill="#b45309" opacity="0"/>
+        </g>
+      </g>
+
+      <!-- Hammer -->
+      <g id="hammer" transform="translate(-140, -30)">
+        <path d="M0,0 L-18,-50 L-6,-70 L18,-70 L30,-50 Z" fill="url(#bluedSteel)" stroke="#111827" stroke-width="8"/>
+        <circle cx="0" cy="0" r="16" fill="#1e293b" stroke="#111827" stroke-width="6"/>
+      </g>
+
+      <!-- Barrel -->
+      <rect x="60" y="-38" width="220" height="76" rx="38" fill="url(#bluedSteel)" stroke="#111827" stroke-width="12"/>
+      <!-- Muzzle -->
+      <circle cx="280" cy="0" r="38" fill="#0f172a" stroke="#1e293b" stroke-width="10"/>
+      <!-- Muzzle flash -->
+      <g id="flash" opacity="0">
+        <circle cx="280" cy="0" r="90" fill="url(#muzzleFlashGrad)" opacity="0.9"/>
+        <circle cx="280" cy="0" r="50" fill="#fef08c" opacity="0.7"/>
+      </g>
+      <!-- Smoke puff -->
+      <g id="smoke" opacity="0">
+        <ellipse cx="300" cy="-30" rx="60" ry="40" fill="url(#smokeGrad)"/>
+        <ellipse cx="310" cy="20" rx="50" ry="35" fill="url(#smokeGrad)"/>
+      </g>
+
+      <!-- Trigger & guard (simplified) -->
+      <path d="M -80,40 Q -100,60 -80,90 Q -40,110 0,90 L 20,70 Q 40,50 20,30 Z" fill="#111827" stroke="#1e293b" stroke-width="6"/>
+
+      <!-- Ejected casings container -->
+      <g id="ejected-casings"></g>
+
+    </g>
+
+  </svg>
+
+  <div class="status" id="status">Ready – Click to fire</div>
+</div>
+
+<script>
+const revolver = document.getElementById('revolver');
+const hammer = document.getElementById('hammer');
+const cylinder = document.getElementById('cylinder');
+const flash = document.getElementById('flash');
+const smoke = document.getElementById('smoke');
+const status = document.getElementById('status');
+const brassRims = document.getElementById('brass-rims');
+const chambers = document.getElementById('chambers');
+const ejected = document.getElementById('ejected-casings');
+
+let shotCount = 0;
+const maxShots = 6;
+let isFiring = false;
+
+function createCasing(x, y) {
+  const casing = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  casing.innerHTML = `
+    <rect x="-10" y="-18" width="20" height="36" rx="4" fill="#b45309" stroke="#92400e" stroke-width="2"/>
+    <circle cx="0" cy="-14" r="8" fill="#fbbf24" opacity="0.9"/>
+  `;
+  casing.setAttribute('transform', `translate(${x},${y}) rotate(${Math.random()*360})`);
+  ejected.appendChild(casing);
+
+  let vy = -8 - Math.random()*6;
+  let vx = (Math.random() - 0.5) * 12;
+  let rot = Math.random()*20 - 10;
+  let rotSpeed = (Math.random() - 0.5) * 18;
+
+  function fall() {
+    vy += 0.45;
+    x += vx;
+    y += vy;
+    rot += rotSpeed;
+    casing.setAttribute('transform', `translate(${x},${y}) rotate(${rot}) scale(0.9)`);
+    if (y < 700) requestAnimationFrame(fall);
+    else casing.remove();
+  }
+  fall();
+}
+
+function fire() {
+  if (isFiring || shotCount >= maxShots) return;
+  isFiring = true;
+
+  const currentChamber = shotCount % 6;
+
+  // 1. Cock hammer
+  hammer.setAttribute('transform', 'translate(-140, -30) rotate(-40)');
+
+  setTimeout(() => {
+    // 2. Release hammer + flash
+    hammer.setAttribute('transform', 'translate(-140, -30)');
+
+    flash.setAttribute('opacity', '1');
+    smoke.setAttribute('opacity', '0.7');
+
+    // Show spent primer (brass rim)
+    const rim = brassRims.children[currentChamber];
+    rim.setAttribute('opacity', '0.95');
+
+    // Eject casing
+    const chamberPos = [
+      [0, -48], [42, -34], [42, 34], [0, 48], [-42, 34], [-42, -34]
+    ];
+    const [cx, cy] = chamberPos[currentChamber];
+    createCasing(400 + cx*1.15, 260 + cy*1.15);
+
+    // Recoil
+    revolver.setAttribute('transform', 'translate(440,260) scale(1.15) translate(-18, -12) rotate(2)');
+
+    setTimeout(() => {
+      revolver.setAttribute('transform', 'translate(440,260) scale(1.15)');
+    }, 80);
+
+    setTimeout(() => {
+      flash.setAttribute('opacity', '0');
+      smoke.setAttribute('opacity', '0');
+    }, 140);
+
+    // Rotate cylinder after shot
+    setTimeout(() => {
+      cylinder.setAttribute('transform', `translate(-40,0) rotate(${60 * (shotCount + 1)})`);
+    }, 180);
+
+    shotCount++;
+    status.textContent = `${shotCount}/6 – ${maxShots - shotCount} left`;
+
+    if (shotCount >= maxShots) {
+      setTimeout(() => {
+        status.textContent = "Cylinder empty • Click to reload";
+        isFiring = false;
+      }, 800);
+    } else {
+      setTimeout(() => { isFiring = false; }, 600);
+    }
+
+  }, 180); // hammer fall delay
+}
+
+document.addEventListener('click', () => {
+  if (shotCount >= maxShots) {
+    // Reload
+    shotCount = 0;
+    status.textContent = "Ready – Click to fire";
+    brassRims.querySelectorAll('circle').forEach(c => c.setAttribute('opacity','0'));
+    cylinder.setAttribute('transform', 'translate(-40,0)');
+    ejected.innerHTML = '';
+    isFiring = false;
+  } else {
+    fire();
+  }
+});
+
+// Optional: auto-play once on load (comment out if unwanted)
+setTimeout(() => {
+  // fire();   // uncomment to auto-start sequence
+}, 1200);
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wrench & Nut</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&family=Courier+Prime&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f0ebe0;--line:#c8b89a;--ink:#3a2e1e;--rust:#c87040;--accent:#e05a18;}
+html,body{width:100%;height:100%;}
+body{background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Oswald',sans-serif;overflow:hidden;position:relative;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),linear-gradient(rgba(200,184,154,0.3) 1px,transparent 1px),linear-gradient(90deg,rgba(200,184,154,0.3) 1px,transparent 1px);background-size:80px 80px,80px 80px,16px 16px,16px 16px;opacity:0.5;pointer-events:none;}
+body::after{content:'';position:fixed;inset:20px;border:1.5px solid var(--line);pointer-events:none;opacity:0.45;}
+header{position:relative;z-index:10;text-align:center;margin-bottom:24px;}
+header h1{font-size:clamp(1.3rem,3vw,2rem);font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:0.3em;}
+header p{font-family:'Courier Prime',monospace;font-size:0.68rem;color:var(--rust);letter-spacing:0.18em;margin-top:3px;}
+canvas{display:block;filter:drop-shadow(0 10px 35px rgba(40,30,15,0.22));}
+.scene-wrap{position:relative;z-index:5;}
+footer{position:relative;z-index:10;margin-top:20px;font-family:'Courier Prime',monospace;font-size:0.63rem;color:var(--ink);opacity:0.4;letter-spacing:0.2em;text-transform:uppercase;}
+.torque-bar{position:relative;z-index:10;margin-top:16px;width:320px;display:flex;flex-direction:column;gap:5px;}
+.torque-label{display:flex;justify-content:space-between;font-family:'Courier Prime',monospace;font-size:0.62rem;color:var(--ink);opacity:0.6;letter-spacing:0.15em;}
+.torque-track{height:6px;background:rgba(58,46,30,0.12);border:1px solid var(--line);border-radius:3px;overflow:hidden;}
+.torque-fill{height:100%;background:linear-gradient(90deg,#8ab0c8,#e05a18);border-radius:3px;width:0%;transition:width 0.05s linear;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mechanical Assembly</h1>
+  <p>Fig. 1 — M16 Hex Nut · Threaded Bolt · Open-End Wrench</p>
+</header>
+<div class="scene-wrap">
+  <canvas id="c" width="560" height="360"></canvas>
+</div>
+<div class="torque-bar">
+  <div class="torque-label"><span>TORQUE APPLIED</span><span id="torqueVal">0 N·m</span></div>
+  <div class="torque-track"><div class="torque-fill" id="torqueFill"></div></div>
+</div>
+<footer>DWG-2024 · Scale 1:1 · Material: Chrome-Vanadium Steel · Grade 8.8</footer>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+const CX=W/2,CY=H/2+10;
+let animT=0,lastTs=null;
+
+function remap(v,a,b,c,d){return c+(d-c)*Math.max(0,Math.min(1,(v-a)/(b-a)));}
+function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function easeOut(t){return 1-(1-t)*(1-t);}
+function easeIn(t){return t*t;}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function hexPath(cx,cy,r,rot){
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const a=rot+i*Math.PI/3;
+    const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+}
+
+// ── BOLT ──────────────────────────────────────────────────────
+function drawBolt(nutDescend){
+  const bx=CX,by=CY+15;
+  const bR=9,bH=125,headR=21,headH=20;
+  ctx.save();ctx.translate(bx,by);
+
+  // Shank gradient
+  const sg=ctx.createLinearGradient(-bR,0,bR,0);
+  sg.addColorStop(0,'#b0bcc8');sg.addColorStop(0.2,'#dce8f4');sg.addColorStop(0.5,'#f0f4f8');
+  sg.addColorStop(0.8,'#c0ccd8');sg.addColorStop(1,'#7a8898');
+  ctx.fillStyle=sg;ctx.fillRect(-bR,0,bR*2,bH);
+
+  // Thread lines
+  for(let ty=3;ty<bH-4;ty+=7){
+    ctx.strokeStyle='rgba(70,90,110,0.3)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(-bR-1,ty);ctx.lineTo(bR+1,ty);ctx.stroke();
+    ctx.strokeStyle='rgba(220,235,248,0.5)';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(-bR,ty+2);ctx.lineTo(bR,ty+2);ctx.stroke();
+  }
+  // Side edges
+  ctx.strokeStyle='#607080';ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(-bR,0);ctx.lineTo(-bR,bH);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(bR,0);ctx.lineTo(bR,bH);ctx.stroke();
+
+  // Hex head
+  ctx.save();ctx.translate(0,-headH*0.5+1);
+  const hg=ctx.createLinearGradient(-headR,0,headR,0);
+  hg.addColorStop(0,'#7a8a9a');hg.addColorStop(0.2,'#c8d4e0');hg.addColorStop(0.5,'#eef2f6');
+  hg.addColorStop(0.75,'#b0bccb');hg.addColorStop(1,'#6a7a88');
+  ctx.fillStyle=hg;hexPath(0,0,headR,Math.PI/6);ctx.fill();
+  ctx.strokeStyle='#5a6a78';ctx.lineWidth=1.2;hexPath(0,0,headR,Math.PI/6);ctx.stroke();
+  for(let i=0;i<6;i++){
+    const a=Math.PI/6+i*Math.PI/3;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(headR*Math.cos(a)*0.65,headR*Math.sin(a)*0.65);
+    ctx.strokeStyle='rgba(90,110,130,0.2)';ctx.lineWidth=0.8;ctx.stroke();
+  }
+  ctx.beginPath();ctx.ellipse(0,-3,headR*0.5,4,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(240,248,255,0.3)';ctx.fill();
+  ctx.restore();
+
+  // Washer
+  const wg=ctx.createLinearGradient(-headR,bH-6,headR,bH+6);
+  wg.addColorStop(0,'#7a8a9a');wg.addColorStop(0.5,'#ccd8e4');wg.addColorStop(1,'#5a6a78');
+  ctx.fillStyle=wg;roundRect(-headR,bH-6,headR*2,12,2);ctx.fill();
+  ctx.strokeStyle='#5a6a78';ctx.lineWidth=0.8;roundRect(-headR,bH-6,headR*2,12,2);ctx.stroke();
+
+  // Tip chamfer
+  ctx.fillStyle='#8a9aaa';roundRect(-bR+2,bH,bR*2-4,8,3);ctx.fill();
+  ctx.restore();
+}
+
+// ── NUT ───────────────────────────────────────────────────────
+function drawNut(angle,absY){
+  const nx=CX,ny=absY;
+  const nR=20,nH=16;
+  ctx.save();ctx.translate(nx,ny);
+
+  // Shadow
+  ctx.beginPath();ctx.ellipse(0,nH/2+4,nR*0.82,5,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(40,30,15,0.16)';ctx.fill();
+
+  // Top hex face
+  ctx.save();ctx.rotate(angle);
+  const fg=ctx.createLinearGradient(-nR,0,nR,0);
+  fg.addColorStop(0,'#7a8a98');fg.addColorStop(0.15,'#c8d4e0');fg.addColorStop(0.45,'#e8edf2');
+  fg.addColorStop(0.7,'#b0bccb');fg.addColorStop(1,'#6a7a88');
+  ctx.fillStyle=fg;hexPath(0,0,nR,Math.PI/6);ctx.fill();
+  ctx.strokeStyle='#5a6a78';ctx.lineWidth=1.2;hexPath(0,0,nR,Math.PI/6);ctx.stroke();
+  for(let i=0;i<6;i++){
+    const a=Math.PI/6+i*Math.PI/3;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(nR*Math.cos(a)*0.68,nR*Math.sin(a)*0.68);
+    ctx.strokeStyle='rgba(90,110,130,0.18)';ctx.lineWidth=0.7;ctx.stroke();
+  }
+  // Threaded hole
+  const tg=ctx.createRadialGradient(0,0,1,0,0,9);
+  tg.addColorStop(0,'#1a2430');tg.addColorStop(0.5,'#38485a');tg.addColorStop(1,'#4a5a6a');
+  ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fillStyle=tg;ctx.fill();
+  for(let r=4;r<9;r+=2.5){
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(80,110,140,0.28)';ctx.lineWidth=0.7;ctx.stroke();
+  }
+  // Highlight
+  ctx.beginPath();ctx.arc(0,0,nR*0.68,Math.PI*1.1,Math.PI*1.75);
+  ctx.strokeStyle='rgba(240,248,255,0.4)';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.restore();
+
+  // Side band
+  ctx.save();ctx.rotate(angle);
+  const sg=ctx.createLinearGradient(-nR,0,nR,nH);
+  sg.addColorStop(0,'#5a6a78');sg.addColorStop(0.5,'#8a9aaa');sg.addColorStop(1,'#3a4858');
+  ctx.save();ctx.beginPath();hexPath(0,0,nR+1,Math.PI/6);ctx.clip();
+  ctx.fillStyle=sg;ctx.fillRect(-nR-2,0,(nR+2)*2,nH+2);
+  ctx.strokeStyle='rgba(200,220,235,0.38)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(-nR,1);ctx.lineTo(nR,1);ctx.stroke();
+  ctx.strokeStyle='rgba(30,50,70,0.38)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(-nR+2,nH-2);ctx.lineTo(nR-2,nH-2);ctx.stroke();
+  ctx.restore();ctx.restore();
+  ctx.restore();
+}
+
+// ── WRENCH ────────────────────────────────────────────────────
+function drawWrench(wAngle,jawX,jawY){
+  ctx.save();ctx.translate(jawX,jawY);ctx.rotate(wAngle);
+
+  const jawR=25,jawGap=24,jawDepth=16,handleL=195,handleW=17;
+
+  // Drop shadow
+  ctx.save();ctx.translate(5,7);ctx.globalAlpha=0.16;
+  _wrenchFill(jawR,jawGap,jawDepth,handleL,handleW,true);
+  ctx.restore();ctx.globalAlpha=1;
+  _wrenchFill(jawR,jawGap,jawDepth,handleL,handleW,false);
+  ctx.restore();
+}
+
+function _wrenchFill(jawR,jawGap,jawDepth,handleL,handleW,isShadow){
+  const halfGap=jawGap/2;
+  const innerR=jawR-jawDepth;
+  const fill=isShadow?'#1a2028':null;
+  const stk=isShadow?'#1a2028':null;
+
+  // Handle
+  ctx.save();ctx.translate(jawR*0.5,0);
+  if(!isShadow){
+    const hg=ctx.createLinearGradient(0,-handleW/2,0,handleW/2);
+    hg.addColorStop(0,'#ccd6e0');hg.addColorStop(0.2,'#eef2f6');hg.addColorStop(0.55,'#c0ccd8');
+    hg.addColorStop(0.82,'#8898a8');hg.addColorStop(1,'#5a6878');
+    ctx.fillStyle=hg;
+  } else {ctx.fillStyle=fill;}
+  roundRect(0,-handleW/2,handleL,handleW,handleW/2);ctx.fill();
+  if(!isShadow){
+    ctx.strokeStyle='#5a6a78';ctx.lineWidth=1;
+    roundRect(0,-handleW/2,handleL,handleW,handleW/2);ctx.stroke();
+    // highlights
+    ctx.beginPath();ctx.moveTo(8,-handleW/2+2);ctx.lineTo(handleL-8,-handleW/2+2);
+    ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(8,handleW/2-2);ctx.lineTo(handleL-8,handleW/2-2);
+    ctx.strokeStyle='rgba(30,50,70,0.22)';ctx.lineWidth=1;ctx.stroke();
+    // Knurling grip
+    const gs=handleL*0.38,ge=handleL*0.72;
+    ctx.save();ctx.beginPath();roundRect(gs,-handleW/2,ge-gs,handleW,0);ctx.clip();
+    ctx.strokeStyle='rgba(70,90,110,0.2)';ctx.lineWidth=1.4;
+    for(let kx=gs;kx<ge;kx+=5){ctx.beginPath();ctx.moveTo(kx,-handleW/2);ctx.lineTo(kx,handleW/2);ctx.stroke();}
+    ctx.restore();
+    // End cap
+    ctx.beginPath();ctx.arc(handleL,0,handleW/2,0,Math.PI*2);
+    const eg=ctx.createRadialGradient(handleL-3,-3,0,handleL,0,handleW/2);
+    eg.addColorStop(0,'#eef2f6');eg.addColorStop(1,'#7a8898');
+    ctx.fillStyle=eg;ctx.fill();ctx.strokeStyle='#5a6a78';ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+
+  // Jaw head
+  ctx.save();
+  if(!isShadow){
+    const jg=ctx.createRadialGradient(-3,-3,1,0,0,jawR+6);
+    jg.addColorStop(0,'#eef2f6');jg.addColorStop(0.35,'#c8d4e0');
+    jg.addColorStop(0.75,'#8898a8');jg.addColorStop(1,'#5a6878');
+    ctx.fillStyle=jg;
+  } else {ctx.fillStyle=fill;}
+
+  ctx.beginPath();
+  ctx.arc(0,0,jawR,Math.PI*0.28,Math.PI*1.72);
+  ctx.lineTo(-jawDepth*0.75,halfGap);
+  ctx.arc(0,0,innerR,Math.PI*1.72,Math.PI*0.28,true);
+  ctx.lineTo(-jawDepth*0.75,-halfGap);
+  ctx.closePath();
+  ctx.fill();
+  if(!isShadow){
+    ctx.strokeStyle='#5a6a78';ctx.lineWidth=1.2;
+    ctx.beginPath();
+    ctx.arc(0,0,jawR,Math.PI*0.28,Math.PI*1.72);
+    ctx.lineTo(-jawDepth*0.75,halfGap);
+    ctx.arc(0,0,innerR,Math.PI*1.72,Math.PI*0.28,true);
+    ctx.lineTo(-jawDepth*0.75,-halfGap);
+    ctx.closePath();
+    ctx.stroke();
+    // Jaw face highlights
+    ctx.beginPath();ctx.moveTo(-jawDepth*0.5,-halfGap);ctx.lineTo(innerR*0.25,-halfGap);
+    ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-jawDepth*0.5,halfGap);ctx.lineTo(innerR*0.25,halfGap);
+    ctx.strokeStyle='rgba(255,255,255,0.48)';ctx.lineWidth=1.5;ctx.stroke();
+    // Throat highlight arc
+    ctx.beginPath();ctx.arc(0,0,innerR+3,Math.PI*0.32,Math.PI*1.68);
+    ctx.strokeStyle='rgba(30,60,90,0.18)';ctx.lineWidth=2;ctx.stroke();
+    // Center ring
+    ctx.beginPath();ctx.arc(0,0,innerR-5,0,Math.PI*2);
+    ctx.strokeStyle='rgba(100,130,160,0.15)';ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ── Stress/spark effect ───────────────────────────────────────
+function drawStress(x,y,intensity){
+  if(intensity<=0)return;
+  const count=6;
+  for(let i=0;i<count;i++){
+    const a=(i/count)*Math.PI*2+animT*10;
+    const len=(7+Math.random()*9)*intensity;
+    const x1=x+Math.cos(a)*23,y1=y+Math.sin(a)*23;
+    const x2=x+Math.cos(a)*(23+len),y2=y+Math.sin(a)*(23+len);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    ctx.strokeStyle=`rgba(210,130,50,${intensity*0.65})`;ctx.lineWidth=1.3;ctx.stroke();
+  }
+  // Glow halo
+  const g=ctx.createRadialGradient(x,y,16,x,y,35);
+  g.addColorStop(0,`rgba(230,140,40,${intensity*0.18})`);
+  g.addColorStop(1,'rgba(230,140,40,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,35,0,Math.PI*2);ctx.fill();
+}
+
+// ── Motion streaks ─────────────────────────────────────────────
+function drawMotion(jx,jy,wAngle,speed){
+  if(speed<0.05)return;
+  ctx.save();ctx.translate(jx,jy);ctx.rotate(wAngle-0.25);
+  ctx.globalAlpha=speed*0.38;ctx.strokeStyle='#8898a8';
+  ctx.setLineDash([3,7]);ctx.lineWidth=1;
+  for(let i=-1;i<=1;i++){
+    ctx.beginPath();ctx.moveTo(55,i*8);ctx.lineTo(175,i*5);ctx.stroke();
+  }
+  ctx.setLineDash([]);ctx.restore();
+}
+
+// ── Annotations ───────────────────────────────────────────────
+function drawAnnotations(){
+  ctx.save();
+  ctx.font='10px "Courier Prime",monospace';
+  ctx.fillStyle='rgba(58,46,30,0.48)';
+  ctx.strokeStyle='rgba(58,46,30,0.28)';ctx.lineWidth=0.8;
+  ctx.setLineDash([3,4]);
+  // Bolt dia
+  ctx.beginPath();ctx.moveTo(CX+10,CY+90);ctx.lineTo(CX+62,CY+90);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillText('Ø16mm',CX+65,CY+94);
+  // Nut label
+  ctx.setLineDash([3,4]);
+  ctx.beginPath();ctx.moveTo(CX+22,CY-40);ctx.lineTo(CX+80,CY-68);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillText('M16 HEX NUT',CX+83,CY-64);
+  // Torque arrow arc (decorative)
+  ctx.strokeStyle='rgba(200,112,64,0.3)';ctx.lineWidth=1;ctx.setLineDash([2,4]);
+  ctx.beginPath();ctx.arc(CX,CY-42,34,Math.PI*1.4,Math.PI*0.1);
+  ctx.stroke();ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ── Main loop ─────────────────────────────────────────────────
+const LOOP=4.2;
+const boltNutX=CX,boltNutY=CY-44;
+
+function frame(ts){
+  if(!lastTs)lastTs=ts;
+  const dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;
+  animT+=dt;
+  const phase=animT%LOOP;
+
+  const P={
+    approach:[0.0,0.55],engage1:[0.55,0.75],tighten1:[0.75,1.9],
+    lift1:[1.9,2.2],repo:[2.2,2.62],engage2:[2.62,2.82],
+    tighten2:[2.82,3.75],lift2:[3.75,3.92],reset:[3.92,4.2]
+  };
+  const inP=p=>phase>=P[p][0]&&phase<P[p][1];
+  const pT=p=>Math.max(0,Math.min(1,(phase-P[p][0])/(P[p][1]-P[p][0])));
+
+  let jawX,jawY,wAngle,motionSpd=0,stress=0,nutRot=0,nutDescend=0;
+
+  if(inP('approach')){
+    const tp=easeOut(pT('approach'));
+    wAngle=remap(tp,0,1,-Math.PI*0.55,-Math.PI*0.18);
+    jawX=boltNutX+140*(1-tp);jawY=boltNutY-80*(1-tp);
+    motionSpd=(1-tp)*0.9;nutRot=0;
+  } else if(inP('engage1')){
+    wAngle=-Math.PI*0.18;jawX=boltNutX;
+    jawY=boltNutY+Math.sin(pT('engage1')*Math.PI)*2.8;nutRot=0;
+  } else if(inP('tighten1')){
+    const tp=easeInOut(pT('tighten1'));
+    wAngle=-Math.PI*0.18+Math.PI*0.33*tp;
+    jawX=boltNutX;jawY=boltNutY;
+    nutRot=Math.PI*0.33*tp;nutDescend=nutRot*4.8;
+    stress=tp>0.68?(tp-0.68)/0.32:0;
+  } else if(inP('lift1')){
+    const tp=easeOut(pT('lift1'));
+    wAngle=-Math.PI*0.18+Math.PI*0.33;
+    jawX=boltNutX+tp*30;jawY=boltNutY-tp*22;
+    nutRot=Math.PI*0.33;nutDescend=nutRot*4.8;
+  } else if(inP('repo')){
+    const tp=easeInOut(pT('repo'));
+    wAngle=remap(tp,0,1,-Math.PI*0.18+Math.PI*0.33,-Math.PI*0.18);
+    jawX=boltNutX+30*(1-tp);jawY=boltNutY-22*(1-tp);
+    nutRot=Math.PI*0.33;nutDescend=nutRot*4.8;
+    motionSpd=Math.sin(tp*Math.PI)*0.72;
+  } else if(inP('engage2')){
+    wAngle=-Math.PI*0.18;jawX=boltNutX;
+    jawY=boltNutY+Math.sin(pT('engage2')*Math.PI)*2.5;
+    nutRot=Math.PI*0.33;nutDescend=nutRot*4.8;
+  } else if(inP('tighten2')){
+    const tp=easeInOut(pT('tighten2'));
+    const sw=Math.PI*0.38;
+    wAngle=-Math.PI*0.18+sw*tp;jawX=boltNutX;jawY=boltNutY;
+    nutRot=Math.PI*0.33+sw*tp;nutDescend=nutRot*4.8;
+    stress=tp>0.72?(tp-0.72)/0.28:0;
+  } else if(inP('lift2')){
+    const tp=easeOut(pT('lift2'));
+    wAngle=-Math.PI*0.18+Math.PI*0.38;
+    jawX=boltNutX+tp*75;jawY=boltNutY-tp*70;
+    nutRot=Math.PI*0.33+Math.PI*0.38;nutDescend=nutRot*4.8;
+    motionSpd=tp*0.5;
+  } else {
+    const tp=easeInOut(pT('reset'));
+    wAngle=remap(tp,0,1,-Math.PI*0.18+Math.PI*0.38,-Math.PI*0.55);
+    jawX=remap(tp,0,1,boltNutX+75,boltNutX+140);
+    jawY=remap(tp,0,1,boltNutY-70,boltNutY-80);
+    nutRot=(Math.PI*0.33+Math.PI*0.38)*(1-tp);
+    nutDescend=nutRot*4.8;
+  }
+  nutDescend=Math.min(nutDescend,22);
+
+  // Clear
+  ctx.clearRect(0,0,W,H);
+
+  // Paper bg
+  const pg=ctx.createRadialGradient(CX,CY,30,CX,CY,300);
+  pg.addColorStop(0,'#f5f0e5');pg.addColorStop(1,'#e4ddd0');
+  ctx.fillStyle=pg;roundRect(10,10,W-20,H-20,8);ctx.fill();
+  ctx.strokeStyle='rgba(170,150,110,0.4)';ctx.lineWidth=1;
+  roundRect(10,10,W-20,H-20,8);ctx.stroke();
+
+  drawAnnotations();
+  drawBolt(nutDescend);
+  drawNut(nutRot,boltNutY+nutDescend);
+  if(stress>0)drawStress(boltNutX,boltNutY+nutDescend,stress);
+  drawMotion(jawX,jawY,wAngle,motionSpd);
+  drawWrench(wAngle,jawX,jawY);
+
+  // Torque gauge
+  const totalRot=Math.PI*0.33+Math.PI*0.38;
+  const pct=Math.min(100,Math.round(nutRot/totalRot*100));
+  document.getElementById('torqueFill').style.width=pct+'%';
+  document.getElementById('torqueVal').textContent=Math.round(pct*1.12)+' N·m';
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

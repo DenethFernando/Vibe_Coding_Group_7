@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grok Basketball</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(#f8f9fc, #e9eef7);
+            font-family: 'Inter', system_ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #222;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            background: linear-gradient(90deg, #ff6600, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 12px rgba(255, 102, 0, 0.15);
+        }
+        
+        .container {
+            position: relative;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18);
+            border-radius: 20px;
+            overflow: hidden;
+            background: #fff;
+        }
+        
+        canvas {
+            display: block;
+            background: #f8f9fc;
+        }
+        
+        .info {
+            margin-top: 18px;
+            font-size: 0.95rem;
+            color: #666;
+            text-align: center;
+            max-width: 420px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏀 Grok Swish</h1>
+    <div class="container">
+        <canvas id="canvas" width="900" height="500"></canvas>
+    </div>
+    <p class="info">Clean physics-based basketball arc • Continuous loop • Realistic swish</p>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const WIDTH = 900;
+        const HEIGHT = 500;
+        
+        // Scene constants
+        const HOOP_X = 685;
+        const HOOP_Y = 182;
+        const RIM_RADIUS = 47;
+        const BALL_RADIUS = 23;
+        const GRAVITY = 0.265;
+        
+        let ball = {
+            x: 135,
+            y: 345,
+            vx: 8.15,
+            vy: -11.85,
+            rotation: 0
+        };
+        
+        let swishTimer = 0;
+        let hasSwished = false;
+        
+        function resetBall() {
+            ball.x = 135;
+            ball.y = 345;
+            ball.vx = 8.15;
+            ball.vy = -11.85;
+            ball.rotation = 0;
+            hasSwished = false;
+        }
+        
+        function drawBackboard() {
+            const bbX = HOOP_X - 83;
+            const bbY = HOOP_Y - 127;
+            const bbW = 167;
+            const bbH = 107;
+            
+            // Main backboard
+            ctx.fillStyle = '#f8f9fa';
+            ctx.strokeStyle = '#1f2a44';
+            ctx.lineWidth = 11;
+            ctx.fillRect(bbX, bbY, bbW, bbH);
+            ctx.strokeRect(bbX, bbY, bbW, bbH);
+            
+            // Inner target rectangle
+            ctx.lineWidth = 5;
+            ctx.strokeRect(bbX + 22, bbY + 19, bbW - 73, 48);
+            
+            // Rim bracket
+            ctx.lineWidth = 9;
+            ctx.beginPath();
+            ctx.moveTo(HOOP_X - 38, HOOP_Y - 6);
+            ctx.lineTo(bbX + bbW - 28, HOOP_Y - 6);
+            ctx.stroke();
+        }
+        
+        function drawRim() {
+            // Outer rim
+            ctx.strokeStyle = '#ff4a00';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.ellipse(HOOP_X, HOOP_Y, RIM_RADIUS, 13, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Inner rim highlight
+            ctx.strokeStyle = '#ffb300';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(HOOP_X, HOOP_Y, RIM_RADIUS - 5, 10, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        function drawNet() {
+            ctx.strokeStyle = '#f0f4ff';
+            ctx.lineWidth = 3.2;
+            
+            const segments = 16;
+            const jiggle = swishTimer > 0 ? 3.5 : 0;
+            const time = Date.now() / 28;
+            
+            // Main vertical net strands
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const startX = HOOP_X + Math.cos(angle) * RIM_RADIUS;
+                const startY = HOOP_Y + Math.sin(angle) * 5;
+                
+                const taper = 0.58 + Math.sin(i) * 0.04;
+                let endX = HOOP_X + Math.cos(angle) * RIM_RADIUS * taper;
+                let endY = HOOP_Y + 96;
+                
+                // Swish jiggle
+                const jiggleOffset = jiggle * Math.sin(time + i * 1.8) * (0.6 + i % 3 * 0.3);
+                endX += jiggleOffset;
+                
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            }
+            
+            // Cross strands for net texture
+            ctx.lineWidth = 2.1;
+            for (let i = 0; i < segments; i += 2) {
+                const a1 = (i / segments) * Math.PI * 2;
+                const a2 = ((i + 1.4) / segments) * Math.PI * 2;
+                
+                let x1 = HOOP_X + Math.cos(a1) * RIM_RADIUS * 0.88;
+                let y1 = HOOP_Y + 34;
+                
+                let x2 = HOOP_X + Math.cos(a2) * RIM_RADIUS * 0.65;
+                let y2 = HOOP_Y + 61;
+                
+                const jiggleOffset = jiggle * Math.sin(time * 1.3 + i) * 0.8;
+                x1 += jiggleOffset * 0.4;
+                x2 += jiggleOffset * 0.7;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+        
+        function drawPole() {
+            ctx.strokeStyle = '#2c3a50';
+            ctx.lineWidth = 19;
+            const poleX = HOOP_X - 64;
+            
+            // Pole
+            ctx.beginPath();
+            ctx.moveTo(poleX, HOOP_Y + 12);
+            ctx.lineTo(poleX, HEIGHT - 22);
+            ctx.stroke();
+            
+            // Base
+            ctx.fillStyle = '#1f2a44';
+            ctx.fillRect(poleX - 29, HEIGHT - 29, 58, 14);
+        }
+        
+        function drawBall(x, y, rot) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rot);
+            
+            // Ball body
+            ctx.fillStyle = '#ff6a00';
+            ctx.beginPath();
+            ctx.arc(0, 0, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Black outline
+            ctx.strokeStyle = '#1c2a2a';
+            ctx.lineWidth = 4.5;
+            ctx.stroke();
+            
+            // Basketball seams
+            ctx.strokeStyle = '#1c2a2a';
+            ctx.lineWidth = 3.8;
+            
+            // Center vertical seam
+            ctx.beginPath();
+            ctx.moveTo(0, -BALL_RADIUS + 2);
+            ctx.lineTo(0, BALL_RADIUS - 2);
+            ctx.stroke();
+            
+            // Left curved panel seam
+            ctx.beginPath();
+            ctx.moveTo(-4, -BALL_RADIUS + 4);
+            ctx.quadraticCurveTo(-BALL_RADIUS * 0.82, -BALL_RADIUS * 0.48, -6, BALL_RADIUS - 4);
+            ctx.stroke();
+            
+            // Right curved panel seam
+            ctx.beginPath();
+            ctx.moveTo(4, -BALL_RADIUS + 4);
+            ctx.quadraticCurveTo(BALL_RADIUS * 0.82, -BALL_RADIUS * 0.48, 6, BALL_RADIUS - 4);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        function updateBall() {
+            ball.vy += GRAVITY;
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+            
+            // Natural spin (forward rotation)
+            ball.rotation += ball.vx * 0.019;
+            
+            // Swish detection (ball center crossing rim plane)
+            if (!hasSwished &&
+                ball.y > HOOP_Y + 8 &&
+                ball.y < HOOP_Y + 52 &&
+                Math.abs(ball.x - HOOP_X) < RIM_RADIUS - 11 &&
+                ball.vy > 1.5) {
+                hasSwished = true;
+                swishTimer = 32;
+            }
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            
+            drawPole();
+            drawBackboard();
+            drawRim();
+            drawNet();
+            
+            updateBall();
+            drawBall(ball.x, ball.y, ball.rotation);
+            
+            // Loop reset when ball is far past the hoop
+            if (ball.y > HEIGHT + 80 || ball.x > WIDTH + 80) {
+                resetBall();
+            }
+            
+            if (swishTimer > 0) swishTimer--;
+            
+            requestAnimationFrame(draw);
+        }
+        
+        // Initialize and start
+        resetBall();
+        draw();
+    </script>
+</body>
+</html>

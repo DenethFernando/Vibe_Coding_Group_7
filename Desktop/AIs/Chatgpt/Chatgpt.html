@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Basketball Shot Animation</title>
+
+<style>
+body{
+    margin:0;
+    background:#f5f7fb;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:sans-serif;
+}
+
+#court{
+    width:900px;
+    height:500px;
+    background:#ffffff;
+    border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.1);
+    position:relative;
+    overflow:hidden;
+}
+
+/* Backboard */
+#backboard{
+    position:absolute;
+    right:120px;
+    top:120px;
+    width:120px;
+    height:80px;
+    border:6px solid #cfd6e4;
+    background:white;
+}
+
+/* Rim */
+#rim{
+    position:absolute;
+    right:130px;
+    top:185px;
+    width:80px;
+    height:12px;
+    background:#e33;
+    border-radius:6px;
+}
+
+/* Net (simple SVG style using lines) */
+#net{
+    position:absolute;
+    right:150px;
+    top:195px;
+    width:40px;
+    height:60px;
+}
+
+.netline{
+    position:absolute;
+    width:2px;
+    height:60px;
+    background:#ddd;
+    transform-origin:top;
+}
+
+/* Ball */
+#ball{
+    position:absolute;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:#f57c00;
+    box-shadow: inset -5px -5px 10px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+
+<body>
+
+<div id="court">
+
+<div id="backboard"></div>
+<div id="rim"></div>
+
+<div id="net">
+<div class="netline" style="left:0; transform:rotate(15deg);"></div>
+<div class="netline" style="left:10px; transform:rotate(5deg);"></div>
+<div class="netline" style="left:20px; transform:rotate(-5deg);"></div>
+<div class="netline" style="left:30px; transform:rotate(-15deg);"></div>
+</div>
+
+<div id="ball"></div>
+
+</div>
+
+<script>
+const ball = document.getElementById("ball")
+
+let t = 0
+let duration = 2.5
+
+const startX = 80
+const startY = 380
+
+const hoopX = 740
+const hoopY = 200
+
+function animate(){
+
+    t += 0.016
+
+    let progress = t / duration
+
+    if(progress > 1){
+        t = 0
+        progress = 0
+    }
+
+    /* Horizontal movement */
+    let x = startX + (hoopX - startX) * progress
+
+    /* Parabolic arc */
+    let peak = 180
+    let y = startY - peak * Math.sin(progress * Math.PI)
+
+    /* Adjust so it falls into hoop */
+    if(progress > 0.85){
+        y = hoopY + (progress - 0.85) * 300
+    }
+
+    ball.style.left = x + "px"
+    ball.style.top = y + "px"
+
+    requestAnimationFrame(animate)
+}
+
+animate()
+</script>
+
+</body>
+</html>

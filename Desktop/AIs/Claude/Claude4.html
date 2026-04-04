@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Six-Shot Revolver</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0b;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 100vh;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+  }
+
+  .scene {
+    position: relative;
+    width: 700px; height: 380px;
+    background: radial-gradient(ellipse at 40% 60%, #1a1410 0%, #0a0a0b 70%);
+    border-radius: 4px;
+  }
+
+  /* ── GUN WRAPPER (recoil target) ── */
+  #gun {
+    position: absolute;
+    left: 140px; top: 100px;
+    width: 420px; height: 200px;
+    transform-origin: 320px 160px;
+    transition: none;
+  }
+
+  /* ══ SVG REVOLVER ══ */
+  #gun svg { overflow: visible; }
+
+  /* Cylinder */
+  #cylinder-group {
+    transform-origin: 182px 95px; /* cylinder center */
+  }
+
+  /* Hammer */
+  #hammer {
+    transform-origin: 256px 78px;
+  }
+
+  /* Trigger */
+  #trigger {
+    transform-origin: 235px 130px;
+  }
+
+  /* ── MUZZLE FLASH ── */
+  #flash-container {
+    position: absolute;
+    left: -18px; top: 52px;
+    pointer-events: none;
+    transform-origin: right center;
+  }
+
+  .flash-core {
+    position: absolute;
+    width: 54px; height: 22px;
+    background: radial-gradient(ellipse at 80% 50%, #fff 0%, #ffe44d 25%, #ff9900 55%, transparent 80%);
+    border-radius: 50% 20% 20% 50%;
+    top: -11px; left: -54px;
+    opacity: 0;
+    filter: blur(1px);
+  }
+  .flash-spike {
+    position: absolute;
+    width: 70px; height: 6px;
+    background: linear-gradient(90deg, transparent 0%, #fffbe0 30%, #ffdd00 60%, transparent 100%);
+    top: -3px; left: -70px;
+    opacity: 0;
+    transform-origin: right center;
+  }
+  .flash-spike2 {
+    position: absolute;
+    width: 50px; height: 4px;
+    background: linear-gradient(90deg, transparent 0%, #fffbe0 40%, transparent 100%);
+    top: -14px; left: -45px;
+    opacity: 0;
+    transform: rotate(-22deg);
+    transform-origin: right center;
+  }
+  .flash-spike3 {
+    position: absolute;
+    width: 50px; height: 4px;
+    background: linear-gradient(90deg, transparent 0%, #fffbe0 40%, transparent 100%);
+    top: 8px; left: -45px;
+    opacity: 0;
+    transform: rotate(22deg);
+    transform-origin: right center;
+  }
+
+  /* ── SMOKE ── */
+  .smoke-puff {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,200,200,0.55) 0%, transparent 70%);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  /* ── BRASS CASINGS ── */
+  .casing {
+    position: absolute;
+    width: 8px; height: 18px;
+    background: linear-gradient(135deg, #d4a017 0%, #b8860b 40%, #ffd700 60%, #b8860b 100%);
+    border-radius: 3px 3px 1px 1px;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: inset -1px 0 2px rgba(0,0,0,0.4);
+  }
+
+  /* ── COUNTER / STATUS ── */
+  .hud {
+    margin-top: 28px;
+    display: flex; align-items: center; gap: 24px;
+    color: #c8a84b;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+  }
+  .round-indicators {
+    display: flex; gap: 8px;
+  }
+  .round-pip {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid #c8a84b;
+    background: #c8a84b;
+    transition: background 0.2s;
+    box-shadow: 0 0 6px #c8a84b88;
+  }
+  .round-pip.spent {
+    background: transparent;
+    box-shadow: none;
+  }
+  .status-text {
+    color: #c8a84b99;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  #replay-btn {
+    margin-top: 20px;
+    background: none;
+    border: 1px solid #c8a84b66;
+    color: #c8a84b;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    padding: 7px 22px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.4s, border-color 0.2s, color 0.2s;
+    pointer-events: none;
+  }
+  #replay-btn.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+  #replay-btn:hover {
+    border-color: #c8a84b;
+    color: #fff;
+  }
+
+  .label {
+    position: absolute;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    color: #c8a84b33;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <div id="gun">
+    <svg width="420" height="200" viewBox="0 0 420 200" id="revolver-svg">
+      <defs>
+        <!-- Metal gradients -->
+        <linearGradient id="barrelGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7a7a7a"/>
+          <stop offset="35%" stop-color="#b0b0b0"/>
+          <stop offset="65%" stop-color="#888"/>
+          <stop offset="100%" stop-color="#555"/>
+        </linearGradient>
+        <linearGradient id="frameGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6a6a6a"/>
+          <stop offset="40%" stop-color="#9a9a9a"/>
+          <stop offset="100%" stop-color="#4a4a4a"/>
+        </linearGradient>
+        <linearGradient id="gripGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3d2b1a"/>
+          <stop offset="50%" stop-color="#5c3d22"/>
+          <stop offset="100%" stop-color="#2a1a0e"/>
+        </linearGradient>
+        <linearGradient id="cylGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#8a8a8a"/>
+          <stop offset="30%" stop-color="#c0c0c0"/>
+          <stop offset="70%" stop-color="#8a8a8a"/>
+          <stop offset="100%" stop-color="#555"/>
+        </linearGradient>
+        <radialGradient id="chamberGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1a1a1a"/>
+          <stop offset="70%" stop-color="#2d2d2d"/>
+          <stop offset="100%" stop-color="#444"/>
+        </radialGradient>
+        <radialGradient id="chamberSpentGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0d0a06"/>
+          <stop offset="60%" stop-color="#1a1208"/>
+          <stop offset="100%" stop-color="#2a1f0a"/>
+        </radialGradient>
+        <filter id="metalSheen">
+          <feGaussianBlur stdDeviation="0.4" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+
+      <!-- ── BARREL ── -->
+      <!-- Barrel underrib -->
+      <rect x="20" y="93" width="205" height="10" rx="3" fill="#555" filter="url(#metalSheen)"/>
+      <!-- Main barrel tube -->
+      <rect x="20" y="70" width="210" height="28" rx="4" fill="url(#barrelGrad)" filter="url(#metalSheen)"/>
+      <!-- Barrel top rib -->
+      <rect x="22" y="68" width="206" height="5" rx="2" fill="#bbb"/>
+      <!-- Front sight -->
+      <rect x="26" y="62" width="7" height="8" rx="1" fill="#999"/>
+      <!-- Muzzle face -->
+      <ellipse cx="22" cy="84" rx="5" ry="14" fill="#333"/>
+      <ellipse cx="22" cy="84" rx="3.5" ry="11" fill="#111"/>
+      <!-- Barrel-frame junction -->
+      <rect x="220" y="65" width="18" height="36" rx="2" fill="#6a6a6a"/>
+
+      <!-- ── FRAME ── -->
+      <path d="M225 60 L290 60 L310 70 L315 100 L310 135 L280 155 L255 165 L240 175 L225 178 L215 165 L215 60 Z"
+            fill="url(#frameGrad)" filter="url(#metalSheen)"/>
+      <!-- frame top rail -->
+      <rect x="224" y="58" width="88" height="5" rx="2" fill="#aaa"/>
+      <!-- Loading gate -->
+      <rect x="295" y="100" width="12" height="22" rx="2" fill="#555"/>
+
+      <!-- ── CYLINDER GROUP ── -->
+      <g id="cylinder-group">
+        <!-- Cylinder body -->
+        <ellipse cx="182" cy="95" rx="41" ry="41" fill="url(#cylGrad)" stroke="#444" stroke-width="1.5" filter="url(#metalSheen)"/>
+        <!-- Cylinder flutes (6) -->
+        <ellipse cx="182" cy="95" rx="38" ry="38" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="20 20"/>
+        <!-- Cylinder side highlight -->
+        <ellipse cx="182" cy="95" rx="40" ry="40" fill="none" stroke="#ccc" stroke-width="1" stroke-dashoffset="10" stroke-dasharray="60 200" opacity="0.5"/>
+        <!-- Chambers - 6 holes evenly spaced; drawn at 0°,60°,120°,180°,240°,300° -->
+        <!-- chamber 0: top (12 o'clock) -->
+        <circle id="ch0" cx="182" cy="54" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="182" cy="54" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- chamber 1: upper-right (2 o'clock) -->
+        <circle id="ch1" cx="217" cy="74.5" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="217" cy="74.5" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- chamber 2: lower-right (4 o'clock) -->
+        <circle id="ch2" cx="217" cy="115.5" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="217" cy="115.5" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- chamber 3: bottom (6 o'clock) -->
+        <circle id="ch3" cx="182" cy="136" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="182" cy="136" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- chamber 4: lower-left (8 o'clock) -->
+        <circle id="ch4" cx="147" cy="115.5" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="147" cy="115.5" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- chamber 5: upper-left (10 o'clock) -->
+        <circle id="ch5" cx="147" cy="74.5" r="9" fill="url(#chamberGrad)" stroke="#333" stroke-width="1"/>
+        <circle cx="147" cy="74.5" r="6" fill="#111" stroke="#222" stroke-width="0.5"/>
+        <!-- Center pin -->
+        <circle cx="182" cy="95" r="5" fill="#888" stroke="#555" stroke-width="1"/>
+        <circle cx="182" cy="95" r="2.5" fill="#aaa"/>
+      </g>
+
+      <!-- ── HAMMER ── -->
+      <g id="hammer">
+        <!-- Hammer body -->
+        <path d="M256 58 L272 52 L278 60 L270 72 L258 78 L254 70 Z"
+              fill="#777" stroke="#444" stroke-width="1"/>
+        <!-- Hammer spur (thumb ridge) -->
+        <path d="M265 52 L280 46 L283 52 L270 58 Z" fill="#888" stroke="#555" stroke-width="0.8"/>
+        <!-- Hammer face -->
+        <rect x="254" y="68" width="8" height="6" rx="1" fill="#555"/>
+      </g>
+
+      <!-- ── TRIGGER GUARD ── -->
+      <path d="M230 140 Q248 148 255 168 Q258 178 248 182 Q238 185 235 175 Q232 162 220 155"
+            fill="none" stroke="#777" stroke-width="7" stroke-linecap="round"/>
+      <path d="M230 140 Q248 148 255 168 Q258 178 248 182 Q238 185 235 175 Q232 162 220 155"
+            fill="none" stroke="#999" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- ── TRIGGER ── -->
+      <g id="trigger">
+        <path d="M235 128 L244 132 L240 152 L232 150 Z" fill="#888" stroke="#555" stroke-width="0.8"/>
+      </g>
+
+      <!-- ── GRIP ── -->
+      <path d="M215 155 L230 152 L240 175 L248 195 L240 202 L220 200 L208 188 L210 170 Z"
+            fill="url(#gripGrad)" stroke="#2a1a0e" stroke-width="1.5"/>
+      <!-- Grip wood grain lines -->
+      <path d="M218 160 Q228 162 235 175" fill="none" stroke="#3d2b1a" stroke-width="0.8" opacity="0.6"/>
+      <path d="M216 168 Q226 170 232 183" fill="none" stroke="#3d2b1a" stroke-width="0.8" opacity="0.6"/>
+      <path d="M215 178 Q222 178 225 190" fill="none" stroke="#3d2b1a" stroke-width="0.8" opacity="0.5"/>
+      <!-- Grip screw -->
+      <circle cx="228" cy="178" r="3.5" fill="#888" stroke="#555" stroke-width="0.8"/>
+      <line x1="225" y1="178" x2="231" y2="178" stroke="#555" stroke-width="1"/>
+
+      <!-- ── EJECTOR ROD HOUSING ── -->
+      <rect x="110" y="96" width="70" height="9" rx="3" fill="#666"/>
+
+      <!-- ── REAR SIGHT ── -->
+      <rect x="282" y="58" width="14" height="4" rx="1" fill="#777"/>
+      <rect x="286" y="54" width="6" height="5" rx="0.5" fill="#666"/>
+    </svg>
+  </div>
+
+  <!-- Flash container positioned at muzzle -->
+  <div id="flash-container">
+    <div class="flash-core" id="flash-core"></div>
+    <div class="flash-spike" id="flash-spike"></div>
+    <div class="flash-spike2" id="flash-spike2"></div>
+    <div class="flash-spike3" id="flash-spike3"></div>
+  </div>
+
+  <div class="label">COLT SINGLE ACTION — .45 CALIBER</div>
+</div>
+
+<div class="hud">
+  <span style="color:#c8a84b66;letter-spacing:.1em">ROUNDS</span>
+  <div class="round-indicators" id="round-indicators">
+    <div class="round-pip" id="pip0"></div>
+    <div class="round-pip" id="pip1"></div>
+    <div class="round-pip" id="pip2"></div>
+    <div class="round-pip" id="pip3"></div>
+    <div class="round-pip" id="pip4"></div>
+    <div class="round-pip" id="pip5"></div>
+  </div>
+  <span class="status-text" id="status-text">READY</span>
+</div>
+<button id="replay-btn">↺ REPLAY</button>
+
+<script>
+// ── Constants & references ──
+const gun          = document.getElementById('gun');
+const cylinderGrp  = document.getElementById('cylinder-group');
+const hammer       = document.getElementById('hammer');
+const trigger      = document.getElementById('trigger');
+const flashCore    = document.getElementById('flash-core');
+const flashSpike   = document.getElementById('flash-spike');
+const flashSpike2  = document.getElementById('flash-spike2');
+const flashSpike3  = document.getElementById('flash-spike3');
+const flashCont    = document.getElementById('flash-container');
+const scene        = document.getElementById('scene');
+const statusText   = document.getElementById('status-text');
+const replayBtn    = document.getElementById('replay-btn');
+
+// Chamber element IDs
+const chamberIds   = ['ch0','ch1','ch2','ch3','ch4','ch5'];
+const pipIds       = ['pip0','pip1','pip2','pip3','pip4','pip5'];
+
+// Flash container position (muzzle tip relative to scene)
+flashCont.style.left = '140px';  // gun left + ~0px (muzzle is at svg x=22)
+flashCont.style.top  = '184px';  // gun top + barrel center y(84)
+
+// Cylinder rotation accumulator
+let cylRot = 0;
+
+// ── Helpers ──
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setCylRot(deg) {
+  cylinderGrp.style.transform = `rotate(${deg}deg)`;
+}
+
+function setHammer(deg) {
+  hammer.style.transform = `rotate(${deg}deg)`;
+}
+
+function setTrigger(deg) {
+  trigger.style.transform = `rotate(${deg}deg)`;
+}
+
+function setGunTransform(t) {
+  gun.style.transform = t;
+}
+
+// ── Muzzle Flash ──
+async function doFlash() {
+  // Randomize flash shape slightly
+  const w = 44 + Math.random()*20;
+  const h = 16 + Math.random()*12;
+  flashCore.style.width  = w+'px';
+  flashCore.style.height = h+'px';
+  flashCore.style.top    = -(h/2)+'px';
+  flashCore.style.left   = -w+'px';
+
+  flashCore.style.opacity   = '1';
+  flashSpike.style.opacity  = '1';
+  flashSpike2.style.opacity = (0.5+Math.random()*0.5).toString();
+  flashSpike3.style.opacity = (0.5+Math.random()*0.5).toString();
+
+  await sleep(55);
+  flashCore.style.opacity   = '0.6';
+  flashSpike.style.opacity  = '0.4';
+  flashSpike2.style.opacity = '0.2';
+  flashSpike3.style.opacity = '0.2';
+
+  await sleep(40);
+  flashCore.style.opacity   = '0';
+  flashSpike.style.opacity  = '0';
+  flashSpike2.style.opacity = '0';
+  flashSpike3.style.opacity = '0';
+}
+
+// ── Smoke ──
+function spawnSmoke() {
+  for (let i = 0; i < 4; i++) {
+    const s = document.createElement('div');
+    s.className = 'smoke-puff';
+    const size = 12 + Math.random()*20;
+    s.style.width  = size+'px';
+    s.style.height = size+'px';
+    // position near muzzle in scene
+    s.style.left = (128 + Math.random()*10 - size/2) + 'px';
+    s.style.top  = (175 + (Math.random()-0.5)*14 - size/2) + 'px';
+    scene.appendChild(s);
+
+    const delay = i * 40;
+    setTimeout(() => {
+      s.style.transition = 'none';
+      s.style.opacity = '0.55';
+      s.style.transform = 'translate(0,0) scale(1)';
+      // drift up-left
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const dx = -(25 + Math.random()*35);
+          const dy = -(20 + Math.random()*30);
+          s.style.transition = `transform 1.1s ease-out, opacity 1.1s ease-out`;
+          s.style.transform  = `translate(${dx}px,${dy}px) scale(${2+Math.random()})`;
+          s.style.opacity    = '0';
+        });
+      });
+      setTimeout(() => s.remove(), 1200);
+    }, delay);
+  }
+}
+
+// ── Brass casing ejection ──
+// Casings eject from the right side of cylinder (loading gate area ~x:310, y:108)
+function spawnCasing(shotIndex) {
+  const c = document.createElement('div');
+  c.className = 'casing';
+  // Start at cylinder right
+  const startX = 295 + 140; // scene-relative
+  const startY = 100 + 100;
+  c.style.left = startX + 'px';
+  c.style.top  = startY + 'px';
+  c.style.opacity = '1';
+  c.style.transform = 'rotate(10deg)';
+  scene.appendChild(c);
+
+  // Trajectory: eject right and arc down
+  const vx =  40 + Math.random()*60;
+  const vy = -(20 + Math.random()*40);
+  const rotSpeed = (Math.random()-0.5)*900;
+  let x=startX, y=startY, rot=10, velY=vy;
+  const gravity = 2.8;
+  let frame = 0;
+
+  function animCasing() {
+    frame++;
+    velY += gravity;
+    x += vx * 0.06;
+    y += velY * 0.06;
+    rot += rotSpeed * 0.016;
+    c.style.left      = x + 'px';
+    c.style.top       = y + 'px';
+    c.style.transform = `rotate(${rot}deg)`;
+    if (y < 370 && frame < 80) {
+      requestAnimationFrame(animCasing);
+    } else {
+      c.style.transition = 'opacity 0.3s';
+      c.style.opacity = '0';
+      setTimeout(() => c.remove(), 350);
+    }
+  }
+  requestAnimationFrame(animCasing);
+}
+
+// ── Mark chamber as spent ──
+function markSpent(chamberIndex) {
+  const el = document.getElementById(chamberIds[chamberIndex]);
+  if (!el) return;
+  // Change fill to spent (scorched dark)
+  el.style.fill = '#1a1208';
+  // inner circle
+  const inner = el.nextElementSibling;
+  if (inner) inner.style.fill = '#0d0a06';
+}
+
+// ── HUD pip spent ──
+function markPipSpent(i) {
+  document.getElementById(pipIds[i]).classList.add('spent');
+}
+
+// ── Recoil animation ──
+async function doRecoil() {
+  // Quick backward bob + slight upward rotation
+  gun.style.transition = 'transform 0.06s ease-out';
+  gun.style.transform  = 'translateX(6px) translateY(-4px) rotate(-3.5deg)';
+  await sleep(65);
+  gun.style.transition = 'transform 0.18s ease-in';
+  gun.style.transform  = 'translateX(0) translateY(0) rotate(0deg)';
+  await sleep(185);
+  gun.style.transition = 'none';
+}
+
+// ── Hammer cock ──
+async function cockHammer() {
+  // Animate hammer rotating back (cocking)
+  hammer.style.transition = 'transform 0.12s ease-in-out';
+  setHammer(-32);
+  trigger.style.transition = 'transform 0.12s ease-in-out';
+  setTrigger(8);
+  await sleep(130);
+}
+
+// ── Hammer release + fire ──
+async function releaseHammer() {
+  hammer.style.transition = 'transform 0.045s ease-in';
+  setHammer(0);
+  trigger.style.transition = 'transform 0.045s ease-in';
+  setTrigger(0);
+  await sleep(48);
+}
+
+// ── Cylinder step (60° per shot) ──
+async function rotateCylinder() {
+  cylRot += 60;
+  cylinderGrp.style.transition = 'transform 0.10s cubic-bezier(0.4,0,0.2,1)';
+  setCylRot(cylRot);
+  await sleep(115);
+  cylinderGrp.style.transition = 'none';
+}
+
+// ── Single shot sequence ──
+async function fireShot(shotIndex) {
+  statusText.textContent = `SHOT ${shotIndex+1}/6`;
+
+  // 1. Cock hammer
+  await cockHammer();
+
+  // 2. Cylinder rotates as hammer cocks
+  await rotateCylinder();
+
+  // 3. Release hammer (strike)
+  await releaseHammer();
+
+  // 4. Flash + smoke + brass (simultaneous)
+  doFlash();
+  spawnSmoke();
+
+  // 5. Recoil
+  doRecoil();
+
+  // 6. Eject casing after tiny delay
+  setTimeout(() => spawnCasing(shotIndex), 120);
+
+  // 7. Mark chamber spent (the one that just fired = top position)
+  // After rotating 60*(shotIndex+1) degrees, chamber 0 started at top.
+  // Spent chamber index wraps: shot 1 fires ch0 after 1 step, etc.
+  const spentChamber = (6 - ((shotIndex+1) % 6)) % 6;
+  markSpent(spentChamber);
+  markPipSpent(shotIndex);
+
+  await sleep(520); // pause between shots
+}
+
+// ── Full sequence ──
+async function runSequence() {
+  // Reset state
+  cylRot = 0;
+  setCylRot(0);
+  cylinderGrp.style.transition = 'none';
+  setHammer(0);
+  setTrigger(0);
+  gun.style.transform = 'none';
+  statusText.textContent = 'READY';
+
+  // Reset chambers visually
+  chamberIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.fill = ''; el.nextElementSibling && (el.nextElementSibling.style.fill = ''); }
+  });
+  pipIds.forEach(id => document.getElementById(id).classList.remove('spent'));
+
+  replayBtn.classList.remove('visible');
+
+  await sleep(600); // brief pause before first shot
+
+  for (let i = 0; i < 6; i++) {
+    await fireShot(i);
+  }
+
+  statusText.textContent = 'EMPTY';
+  await sleep(400);
+  replayBtn.classList.add('visible');
+}
+
+// ── Start ──
+replayBtn.addEventListener('click', runSequence);
+window.addEventListener('load', () => setTimeout(runSequence, 500));
+</script>
+</body>
+</html>
