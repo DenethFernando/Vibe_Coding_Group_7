@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini - Six-Shot Revolver</title>
+    <style>
+        :root {
+            --gun-metal: #2c3e50;
+            --gun-highlight: #455a64;
+            --brass: #d4af37;
+            --smoke: rgba(200, 200, 200, 0.6);
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+
+        .stage {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: #f5f5f5;
+            border-bottom: 4px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Gun Wrapper for Recoil */
+        #revolver-unit {
+            position: relative;
+            transition: transform 0.05s ease-out;
+            transform-origin: bottom right;
+        }
+
+        .revolver-svg {
+            width: 500px;
+            height: auto;
+            filter: drop-shadow(5px 10px 15px rgba(0,0,0,0.2));
+        }
+
+        /* Muzzle Flash */
+        #flash {
+            position: absolute;
+            top: 135px;
+            left: 50px;
+            width: 80px;
+            height: 60px;
+            background: radial-gradient(circle, #fff 10%, #ffeb3b 40%, #f44336 70%, transparent 100%);
+            border-radius: 50%;
+            opacity: 0;
+            filter: blur(5px);
+            z-index: 10;
+        }
+
+        /* Casing Ejection */
+        .casing {
+            position: absolute;
+            width: 15px;
+            height: 8px;
+            background: var(--brass);
+            border: 1px solid #b8860b;
+            border-radius: 1px;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        /* Smoke Particle */
+        .smoke-puff {
+            position: absolute;
+            background: var(--smoke);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            text-align: center;
+            width: 100%;
+        }
+
+        button {
+            padding: 10px 25px;
+            background: var(--gun-metal);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button:disabled { background: #999; }
+    </style>
+</head>
+<body>
+
+<div class="stage">
+    <div id="revolver-unit">
+        <div id="flash"></div>
+        <svg class="revolver-svg" viewBox="0 0 500 250">
+            <rect x="100" y="120" width="220" height="40" fill="var(--gun-metal)" rx="2" />
+            <rect x="100" y="155" width="220" height="5" fill="var(--gun-highlight)" />
+            
+            <path d="M 320 110 L 450 110 L 460 220 L 420 230 L 380 180 L 320 180 Z" fill="var(--gun-metal)" />
+            
+            <g id="cylinder-group" transform="translate(355, 145)">
+                <circle r="45" fill="#1a252f" stroke="#34495e" stroke-width="2" />
+                <circle class="chamber" cx="0" cy="-28" r="10" fill="#000" />
+                <circle class="chamber" cx="24.2" cy="-14" r="10" fill="#000" />
+                <circle class="chamber" cx="24.2" cy="14" r="10" fill="#000" />
+                <circle class="chamber" cx="0" cy="28" r="10" fill="#000" />
+                <circle class="chamber" cx="-24.2" cy="14" r="10" fill="#000" />
+                <circle class="chamber" cx="-24.2" cy="-14" r="10" fill="#000" />
+                
+                <circle r="5" fill="#555" />
+            </g>
+
+            <g id="hammer" transform="translate(420, 120)">
+                <path d="M 0 0 C 10 -30, 40 -30, 40 0 L 10 10 Z" fill="var(--gun-metal)" stroke="#111" />
+            </g>
+
+            <path d="M 430 150 Q 480 150 480 230 Q 480 260 430 250 Q 390 240 400 180 Z" fill="#4e342e" />
+        </svg>
+    </div>
+
+    <div class="controls">
+        <button id="fireBtn">FIRE 6 ROUNDS</button>
+        <p id="status">READY</p>
+    </div>
+</div>
+
+<script>
+    const fireBtn = document.getElementById('fireBtn');
+    const status = document.getElementById('status');
+    const cylinder = document.getElementById('cylinder-group');
+    const hammer = document.getElementById('hammer');
+    const gunUnit = document.getElementById('revolver-unit');
+    const flash = document.getElementById('flash');
+    const chambers = document.querySelectorAll('.chamber');
+
+    let shotCount = 0;
+    let cylinderRotation = 0;
+
+    async function fireCycle() {
+        if (shotCount >= 6) return;
+        fireBtn.disabled = true;
+        status.innerText = `FIRING: ${shotCount + 1}/6`;
+
+        // 1. Cock Hammer & Rotate Cylinder
+        hammer.style.transition = "transform 0.3s ease";
+        hammer.style.transform = "translate(420, 120) rotate(35deg)";
+        
+        cylinderRotation -= 60;
+        cylinder.style.transition = "transform 0.4s cubic-bezier(0.45, 0.05, 0.55, 0.95)";
+        cylinder.style.transform = `translate(355, 145) rotate(${cylinderRotation}deg)`;
+
+        await sleep(450);
+
+        // 2. Hammer Release & Flash
+        hammer.style.transition = "transform 0.05s ease-in";
+        hammer.style.transform = "translate(420, 120) rotate(0deg)";
+        
+        await sleep(50);
+
+        // Trigger Visual Effects
+        triggerRecoil();
+        triggerFlash();
+        createSmoke();
+        ejectCasing();
+        
+        // Mark chamber as spent (Visual cue)
+        chambers[shotCount].setAttribute('fill', '#222'); 
+        
+        shotCount++;
+
+        if (shotCount < 6) {
+            await sleep(600);
+            fireCycle();
+        } else {
+            status.innerText = "EMPTY";
+            fireBtn.innerText = "RELOAD";
+            fireBtn.disabled = false;
+            fireBtn.onclick = () => location.reload();
+        }
+    }
+
+    function triggerRecoil() {
+        gunUnit.style.transform = "rotate(-8deg) translateX(15px)";
+        setTimeout(() => {
+            gunUnit.style.transform = "rotate(0deg) translateX(0px)";
+        }, 100);
+    }
+
+    function triggerFlash() {
+        flash.style.opacity = "1";
+        flash.style.transform = `scale(${1 + Math.random()})`;
+        setTimeout(() => { flash.style.opacity = "0"; }, 50);
+    }
+
+    function ejectCasing() {
+        const casing = document.createElement('div');
+        casing.className = 'casing';
+        // Position at cylinder rear
+        casing.style.left = "400px";
+        casing.style.top = "150px";
+        casing.style.opacity = "1";
+        document.querySelector('.stage').appendChild(casing);
+
+        let x = 400, y = 150, rot = 0;
+        let vx = 5 + Math.random() * 5;
+        let vy = -8 - Math.random() * 5;
+
+        const fall = setInterval(() => {
+            x += vx;
+            y += vy;
+            vy += 0.8; // Gravity
+            rot += 15;
+            casing.style.left = x + "px";
+            casing.style.top = y + "px";
+            casing.style.transform = `rotate(${rot}deg)`;
+
+            if (y > 450) {
+                clearInterval(fall);
+                casing.remove();
+            }
+        }, 20);
+    }
+
+    function createSmoke() {
+        for(let i=0; i<5; i++) {
+            const smoke = document.createElement('div');
+            smoke.className = 'smoke-puff';
+            const size = 10 + Math.random() * 20;
+            smoke.style.width = size + 'px';
+            smoke.style.height = size + 'px';
+            smoke.style.left = "100px";
+            smoke.style.top = "130px";
+            document.querySelector('.stage').appendChild(smoke);
+
+            smoke.animate([
+                { opacity: 0.8, transform: 'translate(0,0) scale(1)' },
+                { opacity: 0, transform: `translate(${-50 - Math.random()*100}px, ${-20 - Math.random()*50}px) scale(3)` }
+            ], { duration: 1000 + Math.random()*1000, easing: 'ease-out' }).onfinish = () => smoke.remove();
+        }
+    }
+
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    fireBtn.addEventListener('click', () => fireCycle());
+</script>
+
+</body>
+</html>

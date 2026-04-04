@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Stroke Engine Animation</title>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+        }
+
+        #engine-container {
+            width: 500px;
+            height: 600px;
+            border: 5px solid #333;
+            background-color: #fff;
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+        }
+
+        #cylinder {
+            width: 150px;
+            height: 250px;
+            border: 5px solid #333;
+            border-top: none;
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 0 0 10px 10px;
+            background-color: transparent; /* Changed for color effects */
+        }
+
+        /* Color Effects */
+        #gas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 0%; /* Start empty */
+            transition: background-color 0.1s linear, height 0.05s linear;
+            border-radius: 0 0 10px 10px;
+        }
+
+        #piston {
+            width: 130px;
+            height: 80px;
+            background-color: #777;
+            border: 4px solid #333;
+            position: absolute;
+            top: 0; /* Updated dynamically */
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 10px 10px 0 0;
+            z-index: 2;
+        }
+
+        #connecting-rod {
+            width: 20px;
+            height: 180px;
+            background-color: #888;
+            border: 3px solid #333;
+            position: absolute;
+            top: 80px; /* Attach to piston bottom */
+            left: 50%;
+            transform: translateX(-50%) rotate(0deg); /* Initial rotation */
+            transform-origin: 50% 0; /* Pivot at the piston top */
+            z-index: 1;
+        }
+
+        #crankshaft {
+            width: 100px;
+            height: 100px;
+            background-color: transparent;
+            position: absolute;
+            top: 350px; /* Below the cylinder */
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 50%;
+            z-index: 0;
+        }
+
+        #crank-pin {
+            width: 20px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #spark-plug {
+            width: 10px;
+            height: 30px;
+            background-color: #555;
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px;
+            z-index: 3;
+            display: none; /* Initially hidden */
+        }
+
+        /* Spark Effect */
+        #spark {
+            width: 20px;
+            height: 20px;
+            background-color: #ff0;
+            border-radius: 50%;
+            position: absolute;
+            top: 55px;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            z-index: 4;
+            opacity: 0;
+            transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+        }
+
+        /* Labels */
+        #label-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .label {
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+
+        .active {
+            opacity: 1;
+        }
+
+        #intake-label { background-color: #3498db; }
+        #compression-label { background-color: #f39c12; }
+        #power-label { background-color: #e74c3c; }
+        #exhaust-label { background-color: #95a5a6; }
+
+    </style>
+</head>
+<body>
+
+<div id="engine-container">
+    <div id="cylinder">
+        <div id="gas-overlay"></div>
+    </div>
+    <div id="spark-plug"></div>
+    <div id="spark"></div>
+    <div id="piston"></div>
+    <div id="connecting-rod"></div>
+    <div id="crankshaft">
+        <div id="crank-pin"></div>
+    </div>
+
+    <div id="label-container">
+        <div class="label" id="intake-label">INTAKE</div>
+        <div class="label" id="compression-label">COMPRESSION</div>
+        <div class="label" id="power-label">POWER</div>
+        <div class="label" id="exhaust-label">EXHAUST</div>
+    </div>
+</div>
+
+<script>
+    const piston = document.getElementById('piston');
+    const connectingRod = document.getElementById('connecting-rod');
+    const crankshaft = document.getElementById('crankshaft');
+    const gasOverlay = document.getElementById('gas-overlay');
+    const spark = document.getElementById('spark');
+    const sparkPlug = document.getElementById('spark-plug');
+    const intakeLabel = document.getElementById('intake-label');
+    const compressionLabel = document.getElementById('compression-label');
+    const powerLabel = document.getElementById('power-label');
+    const exhaustLabel = document.getElementById('exhaust-label');
+
+    // Engine Dimensions
+    const r = 50; // Crank radius
+    const L = 180; // Connecting rod length
+    const topOfCylinder = 50; // Y-coordinate of cylinder top
+    const pistonHeight = 80;
+
+    let angle = 0; // Crank angle in radians
+    let strokeCount = 0; // 0: Intake, 1: Compression, 2: Power, 3: Exhaust
+
+    function animate() {
+        // --- 1. Physics Calculations ---
+        // Crank pin coordinates (relative to crankshaft center)
+        const x_p = r * Math.sin(angle);
+        const y_p = r * Math.cos(angle);
+
+        // Piston coordinates (position from top of cylinder)
+        // Correct geometric calculation for piston position y(angle)
+        const piston_y = r + L - r * Math.cos(angle) - Math.sqrt(L*L - r*r * Math.sin(angle)*Math.sin(angle));
+
+        // Piston visual position (absolute Y in container)
+        const pistonVisualY = topOfCylinder + piston_y;
+
+        // Connecting rod angle (angle relative to vertical)
+        const beta = Math.asin((r / L) * Math.sin(angle));
+        const rodAngleDegrees = beta * (180 / Math.PI);
+
+
+        // --- 2. Update Visuals ---
+        // Piston movement
+        piston.style.top = pistonVisualY + 'px';
+
+        // Connecting rod position and rotation
+        connectingRod.style.top = (pistonVisualY + pistonHeight) + 'px';
+        connectingRod.style.transform = `translateX(-50%) rotate(${-rodAngleDegrees}deg)`;
+
+        // Crankshaft rotation
+        const crankAngleDegrees = angle * (180 / Math.PI);
+        crankshaft.style.transform = `translateX(-50%) rotate(${crankAngleDegrees}deg)`;
+
+
+        // --- 3. Cycle and Color Effects ---
+        let gasColor = 'transparent';
+        let gasHeightPercent = 0;
+        let isPowerStroke = false;
+
+        // Reset labels
+        intakeLabel.classList.remove('active');
+        compressionLabel.classList.remove('active');
+        powerLabel.classList.remove('active');
+        exhaustLabel.classList.remove('active');
+        sparkPlug.style.display = 'none'; // Hide spark plug unless needed
+
+
+        if (strokeCount === 0) { // Intake (Down)
+            intakeLabel.classList.add('active');
+            gasColor = 'rgba(52, 152, 219, 0.7)'; // Blue
+            gasHeightPercent = (piston_y / (2*r)) * 100; // Based on piston position
+        } else if (strokeCount === 1) { // Compression (Up)
+            compressionLabel.classList.add('active');
+            gasColor = 'rgba(52, 152, 219, 0.7)'; // Blue
+            gasHeightPercent = (piston_y / (2*r)) * 100;
+
+             // Spark effect near TDC (Top Dead Center)
+            if (angle < 0.1 && angle > -0.1) {
+                sparkPlug.style.display = 'block';
+                spark.style.transform = 'translateX(-50%) scale(1.5)';
+                spark.style.opacity = '1';
+                setTimeout(() => {
+                    spark.style.transform = 'translateX(-50%) scale(0)';
+                    spark.style.opacity = '0';
+                }, 100);
+            }
+        } else if (strokeCount === 2) { // Power (Down)
+            powerLabel.classList.add('active');
+            isPowerStroke = true;
+            gasColor = 'rgba(231, 76, 60, 0.9)'; // Orange/Red (Combustion)
+            gasHeightPercent = (piston_y / (2*r)) * 100;
+        } else if (strokeCount === 3) { // Exhaust (Up)
+            exhaustLabel.classList.add('active');
+            gasColor = 'rgba(149, 165, 166, 0.7)'; // Grey
+            gasHeightPercent = (piston_y / (2*r)) * 100;
+        }
+
+        // Apply gas effects
+        gasOverlay.style.backgroundColor = gasColor;
+        gasOverlay.style.height = gasHeightPercent + '%';
+
+        // Add power stroke effect (vibration)
+        if(isPowerStroke && piston_y < r){
+            engineContainer.style.animation = 'vibrate 0.1s linear infinite';
+        } else {
+            engineContainer.style.animation = 'none';
+        }
+
+        // --- 4. Loop Logic ---
+        const speed = 0.05; // Speed multiplier
+        angle += speed;
+
+        // Reset angle after full rotation
+        if (angle >= 2 * Math.PI) {
+            angle = 0;
+            strokeCount = (strokeCount + 1) % 4; // Move to next stroke
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    const engineContainer = document.getElementById('engine-container');
+
+    // Add vibration animation (only runs during power stroke)
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes vibrate {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    `;
+    document.head.appendChild(style);
+
+    animate(); // Start animation
+</script>
+
+</body>
+</html>
